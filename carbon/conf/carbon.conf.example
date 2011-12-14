@@ -92,6 +92,10 @@ LOG_UPDATES = False
 # shift the onus of buffering writes from the kernel into carbon's cache.
 WHISPER_AUTOFLUSH = False
 
+# Set this to True to enable whitelisting and blacklisting of metrics in
+# CONF_DIR/whitelist and CONF_DIR/blacklist
+# USE_WHITELIST = False
+
 # Enable AMQP if you want to receve metrics using an amqp broker
 # ENABLE_AMQP = False
 
