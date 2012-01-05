@@ -1,0 +1,6 @@
+/var/log/carbon/*/* {
+    weekly
+    rotate 5
+    missingok
+    copytruncate
+}

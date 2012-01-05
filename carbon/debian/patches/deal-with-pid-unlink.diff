@@ -1,0 +1,11 @@
+--- a/lib/carbon/conf.py
++++ b/lib/carbon/conf.py
+@@ -251,8 +251,6 @@
+                 else:
+                     raise
+ 
+-            print "Deleting %s (contained pid %d)" % (pidfile, pid)
+-            os.unlink(pidfile)
+             raise SystemExit(0)
+ 
+         elif action == "status":

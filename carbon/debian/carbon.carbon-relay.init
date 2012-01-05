@@ -1,0 +1,273 @@
+#! /bin/bash
+### BEGIN INIT INFO
+# Provides:          carbon-relay
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Carbon-relay initscript
+# Description:       This file should be used to construct scripts to be
+#                    placed in /etc/init.d.
+### END INIT INFO
+
+# Author: Lars Fronius <lars@jimdo.com>
+# 
+
+# Do NOT "set -e"
+
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+DESC="Description of the carbon-relay"
+NAME=carbon-relay
+DAEMON=/usr/bin/$NAME.py
+DAEMON_ARGS=""
+SCRIPTNAME=/etc/init.d/$NAME
+
+# Exit if the package is not installed
+[ -x "$DAEMON" ] || exit 0
+
+# Read configuration variable file if it is present
+[ -r /etc/default/$NAME ] && . /etc/default/$NAME
+
+# Load the VERBOSE setting and other rcS variables
+. /lib/init/vars.sh
+
+# Define LSB log_* functions.
+# Depend on lsb-base (>= 3.2-14) to ensure that this file is present
+# and status_of_proc is working.
+. /lib/lsb/init-functions
+
+getport () {
+CARBON=$(echo ${NAME} | cut -d '-' -f 2)
+python << EOF
+import ConfigParser
+config = ConfigParser.ConfigParser()
+config.read("/etc/carbon/carbon.conf")
+print config.get("$CARBON","$1");
+EOF
+}
+
+getpiddir () {
+CARBON=$(echo ${NAME} | cut -d '-' -f 2)
+python << EOF
+import ConfigParser
+config = ConfigParser.ConfigParser()
+config.read("/etc/carbon/carbon.conf")
+print config.get("$CARBON","PID_DIR");
+EOF
+}
+
+check_for_no_start() {
+    if [ -n "$NO_START" ]; then
+        echo "Not starting $NAME: NO_START set in /etc/default/$NAME" >&2
+        exit 0
+    fi
+}
+
+check_if_running() {
+    # Return
+    # 0 if running
+    # 1 if stopped
+    # 2 if partially running
+    # 3 if undefined
+    local running=0
+    local counter=0
+    for PORT in $CARBON_relay_QUERY_PORT $CARBON_PICKLE_RECEIVER_PORT $CARBON_LINE_RECEIVER_PORT; do
+        fuser -n tcp $PORT > /dev/null 2>&1
+        if [ $? -eq 0 ]; then
+            ((running++))
+        elif [ "$1" = "verbose" ]; then
+            log_progress_msg "Port $PORT has not been assigned, which it should according to /etc/carbon/carbon.conf"
+        fi
+        ((counter++))
+    done
+    if [ -f $CARBON_PID_DIR$NAME.pid ]; then
+        ((running++))
+    elif [ "$1" = "verbose" ]; then
+            log_progress_msg "Pid-File $CARBON_PID_DIR$NAME.pid is not created, which it should according to /etc/carbon/carbon.conf"
+    fi
+    ((counter++))
+    if [ $counter -eq $running ]; then
+        return 0
+    elif [[ $running -gt 0 && $running -ne $counter ]]; then
+        return 2
+    elif [ $running -eq 0 ]; then
+        return 1
+    else
+        return 3
+    fi
+}
+
+CARBON_PID_DIR=$(getpiddir)
+CARBON_PICKLE_RECEIVER_PORT=$(getport "PICKLE_RECEIVER_PORT")
+CARBON_LINE_RECEIVER_PORT=$(getport "LINE_RECEIVER_PORT")
+#
+# Function that starts the daemon/carbon-relay
+#
+do_start()
+{
+    check_for_no_start
+    # Return
+    #   0 if daemon has been started
+    #   1 if daemon was already running
+    #   2 if daemon could not be started
+    $DAEMON $DAEMON_ARGS --pidfile=$CARBON_PID_DIR$NAME.pid start > /dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        log_begin_msg "Starting $NAME ..."
+        log_progress_msg "."
+        local tries=10;
+        local counter=0;
+        local carbon_running=1;
+        while [ $tries -gt $counter ]; do
+            if [ $counter -eq 9 ]; then
+                check_if_running verbose
+            else
+                check_if_running
+            fi
+            if [ $? -eq 0 ]; then
+                counter=$tries;
+                carbon_running=$?
+            else
+                ((counter++))
+            fi
+            sleep 1
+        done
+    else
+        description=$(check_if_running verbose)
+        carbon_running=$?
+        if [ $carbon_running -eq 0 ]; then
+             log_progress_msg "$NAME is already running!"
+             log_progress_msg "$description"
+        elif [ $carbon_running -eq 1 ]; then
+             log_progress_msg "$NAME is stopped!"
+        elif [ $carbon_running -eq 2 ]; then
+             log_progress_msg "$NAME is partially running!"
+             log_progress_msg "$description"
+        elif [ $carbon_running -eq 3 ]; then
+            log_progress_msg "$NAME is in undefined state!"
+        fi
+    fi
+    return $carbon_running
+}
+
+#
+# Function that stops the daemon/carbon-relay
+#
+do_stop()
+{
+    check_for_no_start
+    # Return
+    #   0 if daemon has been stopped
+    #   1 if daemon was already stopped
+    #   2 if daemon could not be stopped
+    #   other if a failure occurred
+    check_if_running
+    carbon_running=$?
+    if [ $carbon_running -eq 0 ] || [ $carbon_running -eq 2 ]; then
+        $DAEMON --pidfile=$CARBON_PID_DIR$NAME.pid stop > /dev/null 2>&1
+        log_begin_msg "Waiting for service to come down ..."
+        log_progress_msg "."
+        local tries=10;
+        local counter=0;
+        local carbon_running=0;
+        while [ $tries -gt $counter ]; do
+            if [ $counter -eq 9 ]; then
+                check_if_running verbose
+            else
+                check_if_running
+            fi
+            if [ $? -eq 1 ]; then
+                counter=$tries;
+                carbon_running=$?
+            else
+                ((counter++))
+            fi
+            sleep 1
+        done
+    else
+        description=$(check_if_running verbose)
+        carbon_running=$?
+        if [ $carbon_running -eq 0 ]; then
+             log_progress_msg "$NAME is already running!"
+             log_progress_msg "$description"
+        elif [ $carbon_running -eq 1 ]; then
+             log_progress_msg "$NAME is stopped!"
+        elif [ $carbon_running -eq 2 ]; then
+             log_progress_msg "$NAME is partially running!"
+             log_progress_msg "$description"
+        elif [ $carbon_running -eq 3 ]; then
+            log_progress_msg "$NAME is in undefined state!"
+        fi
+    fi
+    if [[ $carbon_return_stop -eq 0 && $carbon_running -eq 1 ]]; then
+        return=0;
+    elif [[ $carbon_return_stop -eq 1 && $carbon_running -eq 1 ]]; then
+        return=1;
+    elif [ $carbon_running -eq 2 ]; then
+        return=2;
+    elif [ $carbon_running -eq 3 ]; then
+        return=3;
+    else
+        return=3;
+    fi
+    return $return
+}
+
+case "$1" in
+  start)
+    [ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC" "$NAME"
+    do_start
+    case "$?" in
+        0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+        2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+        *) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+    esac
+    ;;
+  stop)
+    [ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
+    do_stop
+    case "$?" in
+        0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+        2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+    esac
+    ;;
+  status)
+       $DAEMON $DAEMON_ARGS --pidfile=$CARBON_PID_DIR$NAME.pid status && exit 0 || exit $?
+       ;;
+  #reload|force-reload)
+    #
+    # If do_reload() is not implemented then leave this commented out
+    # and leave 'force-reload' as an alias for 'restart'.
+    #
+    #log_daemon_msg "Reloading $DESC" "$NAME"
+    #do_reload
+    #log_end_msg $?
+    #;;
+  restart|force-reload)
+    #
+    # If the "reload" option is implemented then remove the
+    # 'force-reload' alias
+    #
+    log_daemon_msg "Restarting $DESC" "$NAME"
+    do_stop
+    case "$?" in
+      0|1)
+        do_start
+        case "$?" in
+            0) log_end_msg 0 ;;
+            1) log_end_msg 1 ;; # Old process is still running
+            *) log_end_msg 1 ;; # Failed to start
+        esac
+        ;;
+      *)
+        # Failed to stop
+        log_end_msg 1
+        ;;
+    esac
+    ;;
+  *)
+    echo "Usage: $SCRIPTNAME {start|stop|status|restart|force-reload}" >&2
+    exit 3
+    ;;
+esac
+
+:

@@ -1,0 +1,51 @@
+#!/bin/bash -e
+
+#DEBHELPER#
+
+read_defaults() {
+    echo $(python << EOF
+import ConfigParser
+config = ConfigParser.ConfigParser()
+config.read("/etc/carbon/carbon.conf")
+print config.get("DEFAULT","$1");
+EOF
+)
+}
+
+create_new_user() {
+# creating group if he isn't already there
+    if [ -z "`getent group $CARBON_USER`" ]; then
+        addgroup --quiet --system $CARBON_USER
+    fi
+# creating carbon user if he isn't already there
+    if [ -z "`getent passwd $CARBON_USER`" ]; then
+        echo -n "  Creating new user $CARBON_USER... " >&2
+        adduser --quiet --system --no-create-home --home /var/lib/carbon --shell /bin/false \
+            --ingroup $USER --disabled-password --disabled-login \
+            --gecos "Carbon Server Account" $CARBON_USER
+        echo "done." >&2
+    fi
+}
+
+update_permissions() {
+    dir="$1"
+    if [ -d "$dir" ]; then
+        [ -z "$CARBON_USER" ] || chown -R "$CARBON_USER" "$dir"
+        [ -z "$CARBON_USER" ] || chgrp -R "$CARBON_USER" "$dir"
+    fi
+}
+
+CARBON_USER=$(read_defaults USER)
+STORAGE_DIR=$(read_defaults STORAGE_DIR)
+CONF_DIR=$(read_defaults CONF_DIR)
+LOG_DIR=$(read_defaults LOG_DIR)
+PID_DIR=$(read_defaults PID_DIR)
+
+if [ -n $CARBON_USER ]; then
+    create_new_user
+    for DIR in $STORAGE_DIR $CONF_DIR $LOG_DIR $PID_DIR; do
+        if [ -n $DIR ]; then
+            update_permissions $DIR
+        fi
+    done
+fi

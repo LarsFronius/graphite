@@ -1,0 +1,4 @@
+deal-with-pid-unlink.diff
+install-path.diff
+deal-with-usr-conf.diff
+deal-with-var-log.diff

@@ -1,0 +1,32 @@
+#!/bin/bash -e
+
+#DEBHELPER#
+
+read_defaults() {
+    echo $(python << EOF
+import ConfigParser
+config = ConfigParser.ConfigParser()
+config.read("/etc/carbon/carbon.conf")
+print config.get("DEFAULT","$1");
+EOF
+)
+}
+
+delete_user() {
+# deleted group if it is there
+    if [ -n "`getent group $CARBON_USER`" ]; then
+        delgroup --quiet --system $CARBON_USER
+    fi
+# delete user if it is there
+    if [ -n "`getent passwd $CARBON_USER`" ]; then
+        echo -n "  Deleting user $CARBON_USER... " >&2
+        deluser --quiet --system $CARBON_USER
+        echo "done." >&2
+    fi
+}
+
+CARBON_USER=$(read_defaults USER)
+
+if [ -n $CARBON_USER ]; then
+    delete_user
+fi

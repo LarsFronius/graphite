@@ -1,0 +1,12 @@
+carbon (0.9.9+nmu1) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * init scripts, patches to use /etc/carbon
+
+ -- buildmaster <builds@jimdo.com>  Tue, 20 Dec 2011 17:36:02 +0100
+
+carbon (0.9.6) unstable; urgency=low
+
+  * Initial release
+
+ -- Arthur Gautier <arthur.gautier@savoirfairelinux.com>  Mon, 15 Feb 2010 11:15:22 -0500

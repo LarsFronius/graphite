@@ -1,0 +1,11 @@
+--- a/lib/carbon/conf.py
++++ b/lib/carbon/conf.py
+@@ -451,7 +451,7 @@
+             join(settings["PID_DIR"], "%s-%s.pid" %
+                  (program, options["instance"])))
+         settings["LOG_DIR"] = (options["logdir"] or
+-                              "%s-%s" % (settings["LOG_DIR"].rstrip('/'),
++                              "%s/instance-%s" % (settings["LOG_DIR"],
+                                           options["instance"]))
+     else:
+         settings["pidfile"] = (

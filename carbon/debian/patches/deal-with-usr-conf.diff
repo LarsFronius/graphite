@@ -1,0 +1,13 @@
+--- a/lib/carbon/conf.py
++++ b/lib/carbon/conf.py
+@@ -406,9 +406,7 @@
+ 
+     # Default config directory to root-relative, unless overriden by the
+     # 'GRAPHITE_CONF_DIR' environment variable.
+-    settings.setdefault("CONF_DIR",
+-                        os.environ.get("GRAPHITE_CONF_DIR",
+-                                       join(graphite_root, "conf")))
++    settings.setdefault("CONF_DIR", "/etc/carbon/")
+     if options["config"] is None:
+         options["config"] = join(settings["CONF_DIR"], "carbon.conf")
+     else:

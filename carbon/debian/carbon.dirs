@@ -1,0 +1,5 @@
+/etc/carbon
+/var/lib/carbon
+/var/lib/carbon/whisper
+/var/lib/carbon/lists
+/var/log/carbon
